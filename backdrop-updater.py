@@ -195,7 +195,7 @@ if __name__ == "__main__":
                         help="Use local installation package. (Must be zip file)",
                         dest="local_path")
 
-    parser.add_option("--replace",
+    parser.add_option("--replace-all",
                         help="Replace all existing files when installing. **WARNING!** This will replace any custom modules, themes, and file uploads. Use with caution.",
                         action="store_true",
                         dest="replace")
