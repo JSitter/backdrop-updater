@@ -1,4 +1,4 @@
-# Backdrop CMS Core Updater
+# Backdrop 1.x CMS Core Updater
 This script allows for the installation and updating of Backdrop either by downloading a version from GitHub, or from a local zipped package.
 
 ## Usage
