@@ -31,15 +31,15 @@ import os.path as path
 import requests
 import shutil
 import sys
-import tarfile
+import zipfile
 import urllib.request as req
 import xml.etree.ElementTree as ET
 
-backdrop_server_address = 'https://updates.drupal.org/release-history/drupal/7.x'
+backdrop_server_address = 'https://updates.backdropcms.org/release-history/backdrop/1.x'
 home_directory = os.path.dirname(os.path.realpath(__file__))
 temp_dir = home_directory + '/.tempdir'
 
-forbidden_folders = {'sites'}
+forbidden_folders = {'files', 'layouts', 'modules', 'sites', 'themes'}
 forbidden_files = {'.htaccess'}
 
 def check_dir(directory):
@@ -80,48 +80,65 @@ def update_file(temp_location, file, destination, replace=False):
             except:
                 print("{} locked".format(file))
 
-def unpack_gz_into(source, destination, replace=False, save_extract=False):
-    tar = tarfile.open(source, 'r:gz')
-    allfiles = tar.getnames()
-    temp_source_dir = "{}/{}".format(temp_dir, allfiles[0])
+
+
+def unpack_zip_into(source, destination, replace=False):
+    print("Unpack zip source {} desination {}".format(source, destination))
+    zipReference = zipfile.ZipFile(source, 'r')
+    allfiles = zipReference.namelist()
+
+    temp_source_dir = "{}/{}".format(temp_dir, allfiles[0].split('/')[0])
 
     check_dir(temp_dir)
     check_dir(destination)
     
-    tarball = tarfile.open(source, 'r:gz')
-    tarball.extractall(path=temp_dir)
+    zipReference = zipfile.ZipFile(source, 'r')
+    zipReference.extractall(temp_dir)
     files = os.listdir(temp_source_dir)
 
     for file in files:
+        print("found file {}".format(file))
         update_file(temp_source_dir, file, destination, replace)
 
-    if not save_extract:
-        shutil.rmtree(temp_source_dir)
+    shutil.rmtree(temp_source_dir)
+    
+    zipReference.close()
     print("Done")
 
-def download_backdrop_package(download_url, filename, source_hash=""):
+def download_backdrop_package(download_url, filename, version="", source_hash=None):
     check_dir(temp_dir)
     
-    destination = "{}/{}".format(temp_dir, filename)
+    destination = "{}/{}".format(temp_dir, version+filename)
     if not path.exists(destination):
-        print("Downloading {}".format(destination.split('/')[-1]))
-        req.urlretrieve(download_url, destination)
+        try:
+            req.urlretrieve(download_url, destination)
+        except:
+            print("Failed to open URL")
+            sys.exit(1)
     else:
         print("Using local file.")
     
     f = open(destination, 'rb')
-    print("Verifying package authenticity.")
-    file_hash = hashlib.md5(f.read()).hexdigest()
-    f.close()
-    if file_hash != source_hash:
-        print("Warning! Hash Mismatch")
-        remove_file(destination)
-    else:
-        print("Package authenticity established")
+
+    if source_hash is not None:
+        print("Verifying package authenticity.")
+        file_hash = hashlib.md5(f.read()).hexdigest()
+        f.close()
+        if file_hash != source_hash:
+            print("Warning! Hash Mismatch")
+            remove_file(destination)
+        else:
+            print("Package authenticity established")
 
 def get_backdrop_versions(num_of_versions=None):
     response = requests.get(backdrop_server_address)
     root = ET.fromstring(response.content)
+
+    # debug from saved xml data
+    # with open('drupalxml.xml', 'wb') as f:
+    #     f.write(response.content)
+    # root = ET.parse('drupalxml.xml').getroot()
+
     release_order = []
 
     release_dict = {}
@@ -138,8 +155,17 @@ def get_backdrop_versions(num_of_versions=None):
                 release_type = ""
         
         release_name = release.find("name").text
-        release_url = release.find("download_link").text
-        release_hash = release.find("mdhash").text
+        release_version = release.find("version").text
+        try:
+            release_url = release.find("download_link").text
+        except:
+            break
+
+        try:
+            release_hash = release.find("mdhash").text
+        except:
+            release_hash = None
+
         release_version = release.find("version").text
         release_order.append(release_version)
         cur_release = {"name": release_name, 
@@ -147,6 +173,7 @@ def get_backdrop_versions(num_of_versions=None):
                         "url": release_url, 
                         "hash": release_hash,
                         "filename": release_url.split("/")[-1],
+                        "version": release_version,
                         "security": security}
 
         release_dict[release_version] = cur_release
@@ -160,12 +187,12 @@ if __name__ == "__main__":
     usage = "usage: %prog [options]"
     parser = OptionParser(usage=usage)
     parser.add_option("-d", "--download",
-                        help="Download specified version from backdrop.org. If no version is specified most recent version will be chosen",
+                        help="Download specified version from Backdrop.org. If no version is specified most recent version will be chosen",
                         action="store_true",
                         dest="download")
 
     parser.add_option("-f", "--file",
-                        help="Use local installation package. (Must be tar.gz)",
+                        help="Use local installation package. (Must be zip file)",
                         dest="local_path")
 
     parser.add_option("--replace",
@@ -213,22 +240,27 @@ if __name__ == "__main__":
                 version = versions[args[0]]
         else:
             version = versions[versions["order"][0]]
-        print("Downloading {}".format(version["name"]))
+        
         download_url = version['url']
+        download_version = version['version']
         download_filename = version['filename']
         download_hash = version['hash']
-        download_backdrop_package(download_url, download_filename, download_hash)
+        print("Downloading {}".format(version["name"]))
+        saved_filename = download_version + download_filename
+        download_backdrop_package(download_url, download_filename, download_version, download_hash)
+
         if options.install:
             destination = options.install
-            print("destination: {}".format(destination))
         else:
             destination = input("Enter installation location: ")
-            print("destination: {}".format(destination))
-        source = "{}/{}".format(temp_dir, download_filename)
+
+        print("Installing in: {}".format(destination))
+        source = "{}/{}".format(temp_dir, saved_filename)
+
         if options.replace:
-            unpack_gz_into(source, destination, replace=True)
+            unpack_zip_into(source, destination, replace=True)
         else:
-            unpack_gz_into(source, destination)
+            unpack_zip_into(source, destination)
 
     elif options.local_path:
         if options.install:
@@ -237,9 +269,9 @@ if __name__ == "__main__":
             destination = input("Enter installation location: ")
         print("Installing into {}".format(destination))
         if options.replace:
-            unpack_gz_into(options.local_path, destination, replace=True)
+            unpack_zip_into(options.local_path, destination, replace=True)
         else:
-            unpack_gz_into(options.local_path, destination)
+            unpack_zip_into(options.local_path, destination)
 
     else:
         parser.print_help()         
