@@ -28,7 +28,6 @@ import hashlib
 from optparse import OptionParser
 import os
 import os.path as path
-import requests
 import shutil
 import sys
 import zipfile
@@ -130,10 +129,17 @@ def download_backdrop_package(download_url, filename, version="", source_hash=No
         else:
             print("Package authenticity established")
 
-def get_backdrop_versions(num_of_versions=None):
+def get_xml_request(url):
     response = requests.get(backdrop_server_address)
-    root = ET.fromstring(response.content)
+    return ET.fromstring(response.content)
 
+def get_xml_urllib(url):
+    res = req.urlopen(url)
+    xml = res.read()
+    return ET.fromstring(xml)
+
+def get_backdrop_versions(num_of_versions=None):
+    root = get_xml_urllib(backdrop_server_address)
     # debug from saved xml data
     # with open('drupalxml.xml', 'wb') as f:
     #     f.write(response.content)
