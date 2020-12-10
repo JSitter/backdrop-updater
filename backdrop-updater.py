@@ -80,7 +80,6 @@ def update_file(temp_location, file, destination, replace=False):
                 print("{} locked".format(file))
 
 
-
 def unpack_zip_into(source, destination, replace=False):
     print("Unpack zip source {} desination {}".format(source, destination))
     zipReference = zipfile.ZipFile(source, 'r')
@@ -122,12 +121,13 @@ def download_backdrop_package(download_url, filename, version="", source_hash=No
     if source_hash is not None:
         print("Verifying package authenticity.")
         file_hash = hashlib.md5(f.read()).hexdigest()
-        f.close()
+
         if file_hash != source_hash:
             print("Warning! Hash Mismatch")
             remove_file(destination)
         else:
             print("Package authenticity established")
+    f.close()
 
 def get_xml_urllib(url):
     res = req.urlopen(url)
