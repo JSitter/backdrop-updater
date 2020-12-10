@@ -39,7 +39,7 @@ home_directory = os.path.dirname(os.path.realpath(__file__))
 temp_dir = home_directory + '/.tempdir'
 
 forbidden_folders = {'files', 'layouts', 'modules', 'sites', 'themes'}
-forbidden_files = {'.htaccess', 'settings.php'}
+forbidden_files = {'.htaccess', 'settings.php', 'sites.php'}
 
 def check_dir(directory):
     if not path.exists(directory):
