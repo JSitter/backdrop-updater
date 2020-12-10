@@ -129,10 +129,6 @@ def download_backdrop_package(download_url, filename, version="", source_hash=No
         else:
             print("Package authenticity established")
 
-def get_xml_request(url):
-    response = requests.get(backdrop_server_address)
-    return ET.fromstring(response.content)
-
 def get_xml_urllib(url):
     res = req.urlopen(url)
     xml = res.read()
