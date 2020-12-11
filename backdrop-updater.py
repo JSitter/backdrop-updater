@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 '''
-    Backdrop CMS CLI Updater
+    Backdrop CMS CLI Updater v0.9 Beta
     Copyright 2020 by Justin Sitter
 
     Permission is hereby granted, free of charge, to any person 
