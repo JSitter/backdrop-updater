@@ -1,7 +1,6 @@
 # Backdrop 1.x CMS Core Updater 
-
-Version 0.9 Beta
-This script allows for the installation and updating of Backdrop either by downloading a version from GitHub, or from a local zipped package.
+## Version 0.91 Beta
+Easily install or update Backdrop Core using the command line. 
 
 ## Usage
 Run `./backdrop-updater.py` in the terminal to see a list of all available features.
@@ -17,6 +16,18 @@ Run `./backdrop-updater.py` in the terminal to see a list of all available featu
 `-l`, `--list` List all versions of Backdrop available for installation.
 
 `i INSTALLATION_LOCATION`, `--install=INSTALLATION_LOCATION` Specify location of backdrop installation.
+
+## Version History
+
+Version 0.92 Beta
+Adds download progress feedback.
+
+Version 0.91 Beta
+This version adds the option to retry the download if it initially fails.
+Clearer feedback to user as to what's happening.
+
+Version 0.9 Beta
+This script allows for the installation and updating of Backdrop either by downloading a version from GitHub, or from a local zipped package.
 
 ## MIT License
 Copyright 2020 Justin Sitter
