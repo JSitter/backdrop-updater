@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 '''
-    Backdrop CMS CLI Updater v0.9 Beta
+    Backdrop CMS CLI Updater v0.92 Beta
     Copyright 2020 by Justin Sitter
 
     Permission is hereby granted, free of charge, to any person 
@@ -25,11 +25,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 import hashlib
+import math
 from optparse import OptionParser
 import os
 import os.path as path
 import shutil
 import sys
+import time
 import zipfile
 import urllib.request as req
 import xml.etree.ElementTree as ET
@@ -46,7 +48,7 @@ def check_dir(directory):
         os.mkdir(directory)
 
 def remove_directory(source):
-    print("Removing {}".format(source))
+    print("Removing {} directory".format(source))
     shutil.rmtree(source)
 
 def remove_file(source):
@@ -55,10 +57,12 @@ def remove_file(source):
 
 def replace_item(source, destination):
     if path.isdir(destination):
+        file_format = "directory"
         remove_directory(destination)
     else:
+        file_format = ""
         remove_file(destination)
-    
+    print("Replacing {} {}".format(destination, file_format))
     shutil.move(source, destination)
 
 def update_file(temp_location, file, destination, replace=False):
@@ -66,22 +70,48 @@ def update_file(temp_location, file, destination, replace=False):
     temp_file_location = "{}/{}".format(temp_location, file)
 
     if not path.exists(file_destination):
+        print("Installing {}".format(file))
         shutil.move(temp_file_location, destination)
     elif replace:
         replace_item(temp_file_location, file_destination)
     else:
-        if file in forbidden_folders or file in forbidden_files:
+        if file in forbidden_folders:
+            print("Skipping {}. Directory already exists.".format(file))
+        elif file in forbidden_files:
             print("Skipping {}. File already exists.".format(file))
         else:
             try:
                 replace_item(temp_file_location, file_destination)
-                print("Replaced {}".format(file))
             except:
                 print("{} locked".format(file))
 
+def download_report_hook(count, chunk_size, total_size):
+    global start_time
+    if count == 0:
+        start_time = time.time()
+        return
+    duration = time.time() - start_time
+    progress = int(count * chunk_size)
+    speed = int(progress / (1024 * duration))
+    if speed > 799:
+        speed = speed / 1000
+        speed_scale = "MB/s"
+    else:
+        speed_scale = "KB/s"
+    percent = progress * 100 / total_size
+    progress_mb = progress / (1024 * 1024)
+    percent_scale = int(math.floor(percent)/4)
+    vis_downloaded = "=" * percent_scale
+    vis_remaining = "." * (25 - percent_scale)
+    CURSOR_UP = '\x1b[1A'
+    CLEAR_LINE = '\x1b[2k'
+
+    sys.stdout.write("{}{}\r{}>{}||          \n".format(CURSOR_UP, CLEAR_LINE, vis_downloaded, vis_remaining))
+    sys.stdout.write("\r{}{} {:.2f}% -- {:.2f}MB out of {:.2f}MB {:.0f}s          ".format(speed, speed_scale, percent, progress_mb, total_size/1000000, duration))
+    sys.stdout.flush()
+    
 
 def unpack_zip_into(source, destination, replace=False):
-    print("Unpack zip source {} desination {}".format(source, destination))
     zipReference = zipfile.ZipFile(source, 'r')
     allfiles = zipReference.namelist()
 
@@ -95,7 +125,6 @@ def unpack_zip_into(source, destination, replace=False):
     files = os.listdir(temp_source_dir)
 
     for file in files:
-        print("found file {}".format(file))
         update_file(temp_source_dir, file, destination, replace)
 
     shutil.rmtree(temp_source_dir)
@@ -103,18 +132,43 @@ def unpack_zip_into(source, destination, replace=False):
     zipReference.close()
     print("Done")
 
-def download_backdrop_package(download_url, filename, version="", source_hash=None):
+def verifyFileSize(source_location, size):
+    if path.exists(source_location):
+        source_size = path.getsize(source_location)
+        if str(size) != str(source_size):
+            keep_bad_file = input("Local installation file incomplete. Keep anyway? [Y/n]")
+            if keep_bad_file != "Y":
+                remove_file(source_location)
+
+def download_backdrop_package(download_url, filename, version="", source_hash=None, size=None):
     check_dir(temp_dir)
-    
     destination = "{}/{}".format(temp_dir, version+filename)
-    if not path.exists(destination):
-        try:
-            req.urlretrieve(download_url, destination)
-        except:
-            print("Failed to open URL")
-            sys.exit(1)
-    else:
-        print("Using local file.")
+    retry = True
+    while retry:
+        retry = False
+        if source_hash == None and size is not None:
+            verifyFileSize(destination, size)
+            
+        if not path.exists(destination):
+            try:
+                print("Downloading Backdrop {}\nConnecting to download server...".format(version))
+                req.urlretrieve(download_url, destination, download_report_hook)
+                # sys.write('\rDownload Complete')
+                # sys.flush()
+            except:
+                user_retry = input("Failed to complete download. Retry? [Y/n]")
+                if user_retry == "Y" or user_retry == "y":
+                    retry = True
+                else:
+                    sys.exit(1)
+
+                if size is not None:
+                    verifyFileSize(destination, size)
+            else:
+                sys.stdout.write("\rDownload Complete\n")
+                sys.stdout.flush()
+        else:
+            print("Using local file.")
     
     f = open(destination, 'rb')
 
@@ -162,7 +216,7 @@ def get_backdrop_versions(num_of_versions=None):
             release_url = release.find("download_link").text
         except:
             break
-
+        release_size = release.find("filesize").text
         try:
             release_hash = release.find("mdhash").text
         except:
@@ -175,6 +229,7 @@ def get_backdrop_versions(num_of_versions=None):
                         "url": release_url, 
                         "hash": release_hash,
                         "filename": release_url.split("/")[-1],
+                        "filesize": release_size,
                         "version": release_version,
                         "security": security}
 
@@ -246,10 +301,10 @@ if __name__ == "__main__":
         download_url = version['url']
         download_version = version['version']
         download_filename = version['filename']
+        filesize = version['filesize']
         download_hash = version['hash']
-        print("Downloading {}".format(version["name"]))
         saved_filename = download_version + download_filename
-        download_backdrop_package(download_url, download_filename, download_version, download_hash)
+        download_backdrop_package(download_url, download_filename, download_version, download_hash, size=filesize)
 
         if options.install:
             destination = options.install
