@@ -1,4 +1,4 @@
-# Backdrop 1.x CMS Core Updater 
+# Backdrop CMS 1.x Core Updater 
 ## Version 0.92 Beta
 Easily install or update Backdrop Core using the command line. 
 
