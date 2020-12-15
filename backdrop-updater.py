@@ -87,29 +87,42 @@ def update_file(temp_location, file, destination, replace=False):
 
 def download_report_hook(count, chunk_size, total_size):
     global start_time
+    global download_amount
+
+    cur_time = time.time()
     if count == 0:
-        start_time = time.time()
+        download_amount = chunk_size
+        start_time = cur_time
         return
-    duration = time.time() - start_time
-    progress = int(count * chunk_size)
-    speed = int(progress / (1024 * duration))
+    else:
+        download_amount += chunk_size
+
+    duration = cur_time - start_time
+    
+    progress = download_amount
+    speed = int(download_amount / (1024 * duration))
+
+    # Toggle between MB/s and KB/s depending on download speed
     if speed > 799:
         speed = speed / 1000
         speed_scale = "MB/s"
     else:
         speed_scale = "KB/s"
+
     percent = progress * 100 / total_size
     progress_mb = progress / (1024 * 1024)
     percent_scale = int(math.floor(percent)/4)
     vis_downloaded = "=" * percent_scale
     vis_remaining = "." * (25 - percent_scale)
+
     CURSOR_UP = '\x1b[1A'
     CLEAR_LINE = '\x1b[2k'
 
-    sys.stdout.write("{}{}\r{}>{}||          \n".format(CURSOR_UP, CLEAR_LINE, vis_downloaded, vis_remaining))
+    # Display download progress bar
+    sys.stdout.write("{}{}\r{}>{}|            \n".format(CURSOR_UP, CLEAR_LINE, vis_downloaded, vis_remaining))
+    # Display Download progress information
     sys.stdout.write("\r{}{} {:.2f}% -- {:.2f}MB out of {:.2f}MB {:.0f}s          ".format(speed, speed_scale, percent, progress_mb, total_size/1000000, duration))
     sys.stdout.flush()
-    
 
 def unpack_zip_into(source, destination, replace=False):
     zipReference = zipfile.ZipFile(source, 'r')
@@ -165,7 +178,7 @@ def download_backdrop_package(download_url, filename, version="", source_hash=No
                 if size is not None:
                     verifyFileSize(destination, size)
             else:
-                sys.stdout.write("\rDownload Complete\n")
+                sys.stdout.write("\rDownload Complete.                                    \n")
                 sys.stdout.flush()
         else:
             print("Using local file.")
