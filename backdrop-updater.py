@@ -154,6 +154,9 @@ def verifyFileSize(source_location, size):
                 remove_file(source_location)
 
 def download_backdrop_package(download_url, filename, version="", source_hash=None, size=None):
+    #Debugging Version
+    print("Version:")
+    print(version)
     check_dir(temp_dir)
     destination = "{}/{}".format(temp_dir, version+filename)
     retry = True
@@ -226,6 +229,7 @@ def get_backdrop_versions(num_of_versions=None):
         
         release_name = release.find("name").text
         release_version = release.find("version").text
+
         try:
             release_url = release.find("download_link").text
         except:
@@ -300,7 +304,10 @@ if __name__ == "__main__":
         versions = get_backdrop_versions()
         if args:
             if args[0] not in versions:
-                print("Version not available")
+                #Debugging
+                print("latest version")
+                print(versions['order'])
+                print("Version \""+args[0]+"\" not available: ")
                 sys.exit(1)
             else:
                 if versions[args[0]]['security'] == "Insecure":
