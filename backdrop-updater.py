@@ -215,9 +215,10 @@ def get_backdrop_versions(num_of_versions=None):
     for release in releases:
         release_types = release.findall("terms/term")
         security = None
-        for release_type in release_types:
+        release_type = None
+        for release_typ in release_types:
             try:
-                release_type = release_type.find('value').text
+                release_type = release_typ.find('value').text
                 if release_type == "Insecure":
                     security = release_type
             except:
